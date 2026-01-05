@@ -568,11 +568,18 @@ void FileTransferActivity::renderFtpServerRunning() const {
     std::string ftpInfo = "ftp://" + connectedIP + "/";
     renderer.drawCenteredText(UI_10_FONT_ID, startY + LINE_SPACING * 4, ftpInfo.c_str(), true, BOLD);
 
-    renderer.drawCenteredText(SMALL_FONT_ID, startY + LINE_SPACING * 5, "Connect with FTP client:");
+    renderer.drawCenteredText(SMALL_FONT_ID, startY + LINE_SPACING * 5, "Connect with FTP client");
+
+    // Show QR code for FTP URL
+    renderer.drawCenteredText(SMALL_FONT_ID, startY + LINE_SPACING * 6, "or scan QR code with your phone:");
+    drawQRCode(renderer, (480 - 6 * 33) / 2, startY + LINE_SPACING * 7, ftpInfo);
+
+    // Show FTP credentials at the bottom
+    renderer.drawCenteredText(SMALL_FONT_ID, startY + LINE_SPACING * 14, "FTP client will ask for credentials:");
     std::string ftpUserStr = "Username: " + SETTINGS.ftpUsername;
-    renderer.drawCenteredText(SMALL_FONT_ID, startY + LINE_SPACING * 6, ftpUserStr.c_str());
+    renderer.drawCenteredText(SMALL_FONT_ID, startY + LINE_SPACING * 15, ftpUserStr.c_str());
     std::string ftpPassStr = "Password: " + SETTINGS.ftpPassword;
-    renderer.drawCenteredText(SMALL_FONT_ID, startY + LINE_SPACING * 7, ftpPassStr.c_str());
+    renderer.drawCenteredText(SMALL_FONT_ID, startY + LINE_SPACING * 16, ftpPassStr.c_str());
   } else {
     // STA mode display
     const int startY = 65;
