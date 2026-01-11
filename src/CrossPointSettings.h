@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <iosfwd>
+#include <string>
 
 class CrossPointSettings {
  private:
@@ -52,6 +53,16 @@ class CrossPointSettings {
   // E-ink refresh frequency (pages between full refreshes)
   enum REFRESH_FREQUENCY { REFRESH_1 = 0, REFRESH_5 = 1, REFRESH_10 = 2, REFRESH_15 = 3, REFRESH_30 = 4 };
 
+  // Hotspot scheduler settings
+  enum HOTSPOT_SHUTDOWN_TIME {
+    SHUTDOWN_5_MIN = 0,
+    SHUTDOWN_10_MIN = 1,
+    SHUTDOWN_15_MIN = 2,
+    SHUTDOWN_30_MIN = 3,
+    SHUTDOWN_60_MIN = 4,
+    SHUTDOWN_120_MIN = 5
+  };
+
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
   // Sleep screen cover mode settings
@@ -78,8 +89,23 @@ class CrossPointSettings {
   uint8_t sleepTimeout = SLEEP_10_MIN;
   // E-ink refresh frequency (default 15 pages)
   uint8_t refreshFrequency = REFRESH_15;
-  // Reader screen margin settings
-  uint8_t screenMargin = 5;
+  // Screen margin setting (in pixels, default 0)
+  uint8_t screenMargin = 0;
+
+  // Network credentials for FTP and HTTP servers
+  std::string ftpUsername = "crosspoint";
+  std::string ftpPassword = "reader";
+  std::string httpUsername = "crosspoint";
+  std::string httpPassword = "reader";
+  // Hotspot SSID setting
+  std::string hotspotSSID = "Crosspoint Reader";
+
+  // Hotspot scheduler settings
+  uint8_t hotspotSchedulerEnabled = 0;       // 0 = disabled, 1 = enabled
+  uint8_t hotspotSchedulerHour = 12;         // Hour (0-23)
+  uint8_t hotspotSchedulerMinute = 0;        // Minute (0-59)
+  uint8_t hotspotSchedulerShutdownTime = SHUTDOWN_30_MIN;  // Default 30 minutes
+
   // OPDS browser settings
   char opdsServerUrl[128] = "";
 
@@ -90,6 +116,7 @@ class CrossPointSettings {
 
   uint16_t getPowerButtonDuration() const { return shortPwrBtn ? 10 : 400; }
   int getReaderFontId() const;
+  unsigned int getHotspotShutdownMinutes() const;
 
   bool saveToFile() const;
   bool loadFromFile();
