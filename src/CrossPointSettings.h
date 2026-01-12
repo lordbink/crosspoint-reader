@@ -100,6 +100,9 @@ class CrossPointSettings {
   // Hotspot SSID setting
   std::string hotspotSSID = "Crosspoint Reader";
 
+  // BLE file update setting
+  uint8_t bleFileUpdateEnabled = 0;  // 0 = disabled, 1 = enabled
+
   // Hotspot scheduler settings
   uint8_t hotspotSchedulerEnabled = 0;       // 0 = disabled, 1 = enabled
   uint8_t hotspotSchedulerHour = 12;         // Hour (0-23)

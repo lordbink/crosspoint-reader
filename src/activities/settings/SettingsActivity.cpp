@@ -13,7 +13,7 @@
 
 // Define the static settings list
 namespace {
-constexpr int settingsCount = 19;
+constexpr int settingsCount = 20;
 const SettingInfo settingsList[settingsCount] = {
     // Should match with SLEEP_SCREEN_MODE
     {"Sleep Screen",
@@ -70,6 +70,7 @@ const SettingInfo settingsList[settingsCount] = {
     {"FTP Password", SettingType::TEXT, nullptr, &CrossPointSettings::ftpPassword, {}},
     {"HTTP Username", SettingType::TEXT, nullptr, &CrossPointSettings::httpUsername, {}},
     {"HTTP Password", SettingType::TEXT, nullptr, &CrossPointSettings::httpPassword, {}},
+    {"BLE File Update", SettingType::TOGGLE, &CrossPointSettings::bleFileUpdateEnabled, nullptr, {}},
     {"Check for updates", SettingType::ACTION, nullptr, nullptr, {}},
 };
 }  // namespace
