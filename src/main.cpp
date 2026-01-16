@@ -10,12 +10,15 @@
 #include <cstring>
 
 #include "Battery.h"
+#include "BLECalendarService.h"
+#include "CalendarData.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
 #include "activities/boot_sleep/BootActivity.h"
 #include "activities/boot_sleep/SleepActivity.h"
 #include "activities/browser/OpdsBookBrowserActivity.h"
+#include "activities/calendar/CalendarActivity.h"
 #include "activities/home/HomeActivity.h"
 #include "activities/network/FileTransferActivity.h"
 #include "activities/reader/ReaderActivity.h"
@@ -41,6 +44,7 @@ InputManager inputManager;
 MappedInputManager mappedInputManager(inputManager);
 GfxRenderer renderer(einkDisplay);
 Activity* currentActivity;
+BLECalendarService bleCalendarService;
 
 // Fonts
 EpdFont bookerly12RegularFont(&bookerly_12_regular);
@@ -197,6 +201,12 @@ void enterDeepSleep() {
   exitActivity();
   enterNewActivity(new SleepActivity(renderer, mappedInputManager));
 
+  // Stop BLE service before sleep to save power and clean up properly
+  if (bleCalendarService.isRunning()) {
+    Serial.printf("[%lu] [BLE  ] Stopping BLE Calendar Service before sleep\n", millis());
+    bleCalendarService.stop();
+  }
+
   einkDisplay.deepSleep();
   Serial.printf("[%lu] [   ] Power button press calibration value: %lu ms\n", millis(), t2 - t1);
   Serial.printf("[%lu] [   ] Entering deep sleep.\n", millis());
@@ -230,10 +240,15 @@ void onGoToBrowser() {
   enterNewActivity(new OpdsBookBrowserActivity(renderer, mappedInputManager, onGoHome));
 }
 
+void onGoToCalendar() {
+  exitActivity();
+  enterNewActivity(new CalendarActivity(renderer, mappedInputManager, onGoHome));
+}
+
 void onGoHome() {
   exitActivity();
   enterNewActivity(new HomeActivity(renderer, mappedInputManager, onContinueReading, onGoToReaderHome, onGoToSettings,
-                                    onGoToFileTransfer, onGoToBrowser));
+                                    onGoToFileTransfer, onGoToBrowser, onGoToCalendar));
 }
 
 void setupDisplayAndFonts() {
@@ -284,6 +299,25 @@ void setup() {
   }
 
   SETTINGS.loadFromFile();
+
+  // Initialize BLE Calendar Service if enabled
+  if (SETTINGS.bleFileUpdateEnabled) {
+    if (bleCalendarService.begin("Crosspoint Reader")) {
+      Serial.printf("[%lu] [BLE  ] BLE Calendar Service started successfully\n", millis());
+
+      // Register callback for when calendar data is received
+      bleCalendarService.setCalendarReceivedCallback([](const CalendarData& data) {
+        Serial.printf("[%lu] [BLE-CAL] Calendar data received with %u today events, %u tomorrow events\n",
+                      millis(), data.today.getEventCount(), data.tomorrow.getEventCount());
+        Serial.printf("[%lu] [BLE-CAL] Source: %s, Last sync: %lu\n",
+                      millis(), data.source.c_str(), data.lastSyncTime);
+      });
+    } else {
+      Serial.printf("[%lu] [BLE  ] Failed to start BLE Calendar Service\n", millis());
+    }
+  } else {
+    Serial.printf("[%lu] [BLE  ] BLE Calendar Service disabled in settings\n", millis());
+  }
 
   // verify power button press duration after we've read settings.
   verifyWakeupLongPress();
@@ -359,6 +393,11 @@ void loop() {
       Serial.printf("[%lu] [LOOP] New max loop duration: %lu ms (activity: %lu ms)\n", millis(), maxLoopDuration,
                     activityDuration);
     }
+  }
+
+  // Handle BLE calendar service tasks
+  if (SETTINGS.bleFileUpdateEnabled && bleCalendarService.isRunning()) {
+    bleCalendarService.handleTasks();
   }
 
   // Add delay at the end of the loop to prevent tight spinning

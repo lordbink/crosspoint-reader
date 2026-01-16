@@ -3,4 +3,5 @@
 
 #define BAT_GPIO0 0  // Battery voltage
 
-static BatteryMonitor battery(BAT_GPIO0);
+// Global battery monitor instance
+extern BatteryMonitor battery;

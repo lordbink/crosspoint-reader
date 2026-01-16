@@ -6,6 +6,7 @@
 #include <string>
 
 #include "Battery.h"
+#include "CalendarData.h"
 #include "fontIds.h"
 
 void ScreenComponents::drawBattery(const GfxRenderer& renderer, const int left, const int top) {
@@ -62,4 +63,88 @@ void ScreenComponents::drawProgressBar(const GfxRenderer& renderer, const int x,
   // Draw percentage text centered below bar
   const std::string percentText = std::to_string(percent) + "%";
   renderer.drawCenteredText(UI_10_FONT_ID, y + height + 15, percentText.c_str());
+}
+void ScreenComponents::drawCalendarSleepScreen(const GfxRenderer& renderer, const CalendarData& calendarData) {
+  const int pageWidth = renderer.getScreenWidth();
+  const int pageHeight = renderer.getScreenHeight();
+  
+  // Clear screen
+  renderer.clearScreen();
+  
+  // Title with date and weather
+  int y = 20;
+  const std::string dateTitle = calendarData.today.date;
+  renderer.drawCenteredText(UI_12_FONT_ID, y, dateTitle.c_str(), true, EpdFontFamily::BOLD);
+  
+  if (!calendarData.today.weather.empty()) {
+    y += 35;
+    std::string weatherStr = calendarData.today.weather;
+    if (calendarData.today.temperature != 0) {
+      weatherStr += " " + std::to_string(calendarData.today.temperature) + "°C";
+    }
+    renderer.drawCenteredText(SMALL_FONT_ID, y, weatherStr.c_str());
+  }
+  
+  y += 40;
+  
+  // Today's events section
+  if (calendarData.today.getEventCount() > 0) {
+    renderer.drawText(UI_10_FONT_ID, 20, y, "Today's Events:", true, EpdFontFamily::BOLD);
+    y += 30;
+    
+    // Show up to 4 events
+    size_t eventCount = calendarData.today.getEventCount();
+    if (eventCount > 4) eventCount = 4;
+    
+    for (size_t i = 0; i < eventCount; i++) {
+      const auto& event = calendarData.today.events[i];
+      std::string eventStr = event.time + " - " + event.title;
+      
+      // Truncate if too long
+      if (eventStr.length() > 40) {
+        eventStr = eventStr.substr(0, 37) + "...";
+      }
+      
+      renderer.drawText(SMALL_FONT_ID, 30, y, eventStr.c_str());
+      y += 25;
+    }
+  }
+  
+  // Tasks section
+  if (calendarData.today.getTaskCount() > 0) {
+    if (y < pageHeight - 150) {  // Only show if space available
+      y += 10;
+      renderer.drawText(UI_10_FONT_ID, 20, y, "Tasks:", true, EpdFontFamily::BOLD);
+      y += 30;
+      
+      size_t taskCount = calendarData.today.getTaskCount();
+      if (taskCount > 3) taskCount = 3;
+      
+      for (size_t i = 0; i < taskCount; i++) {
+        std::string taskStr = "• " + calendarData.today.tasks[i];
+        
+        if (taskStr.length() > 45) {
+          taskStr = taskStr.substr(0, 42) + "...";
+        }
+        
+        renderer.drawText(SMALL_FONT_ID, 30, y, taskStr.c_str());
+        y += 20;
+      }
+    }
+  }
+  
+  // Tomorrow preview at bottom
+  if (!calendarData.tomorrow.date.empty() && calendarData.tomorrow.getEventCount() > 0) {
+    y = pageHeight - 80;
+    renderer.drawText(SMALL_FONT_ID, 20, y, "Tomorrow:", true, EpdFontFamily::BOLD);
+    y += 25;
+    
+    // Show first tomorrow event
+    const auto& event = calendarData.tomorrow.events[0];
+    std::string tomorrowStr = event.time + " - " + event.title;
+    if (tomorrowStr.length() > 40) {
+      tomorrowStr = tomorrowStr.substr(0, 37) + "...";
+    }
+    renderer.drawText(SMALL_FONT_ID, 30, y, tomorrowStr.c_str());
+  }
 }

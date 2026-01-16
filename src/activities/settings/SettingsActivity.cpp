@@ -20,7 +20,7 @@ const SettingInfo settingsList[settingsCount] = {
      SettingType::ENUM,
      &CrossPointSettings::sleepScreen,
      nullptr,
-     {"Dark", "Light", "Custom", "Cover"}},
+     {"Dark", "Light", "Custom", "Cover", "Blank", "Calendar"}},
     {"Status Bar", SettingType::ENUM, &CrossPointSettings::statusBar, nullptr, {"None", "No Progress", "Full"}},
     {"Extra Paragraph Spacing", SettingType::TOGGLE, &CrossPointSettings::extraParagraphSpacing, nullptr, {}},
     {"Short Power Button Click", SettingType::TOGGLE, &CrossPointSettings::shortPwrBtn, nullptr, {}},

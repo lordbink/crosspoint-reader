@@ -4,6 +4,7 @@
 #include <cstdint>
 
 class GfxRenderer;
+class CalendarData;
 
 class ScreenComponents {
  public:
@@ -21,4 +22,11 @@ class ScreenComponents {
    */
   static void drawProgressBar(const GfxRenderer& renderer, int x, int y, int width, int height, size_t current,
                               size_t total);
+
+  /**
+   * Draw calendar/agenda in sleep screen
+   * @param renderer The graphics renderer
+   * @param calendarData The calendar data to display
+   */
+  static void drawCalendarSleepScreen(const GfxRenderer& renderer, const CalendarData& calendarData);
 };

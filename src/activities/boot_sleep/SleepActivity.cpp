@@ -5,6 +5,8 @@
 #include <SDCardManager.h>
 #include <Xtc.h>
 
+#include "CalendarData.h"
+#include "CalendarEventState.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "fontIds.h"
@@ -25,6 +27,10 @@ void SleepActivity::onEnter() {
 
   if (SETTINGS.sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER) {
     return renderCoverSleepScreen();
+  }
+
+  if (SETTINGS.sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::CALENDAR) {
+    return renderCalendarSleepScreen();
   }
 
   renderDefaultSleepScreen();
@@ -247,5 +253,166 @@ void SleepActivity::renderCoverSleepScreen() const {
 
 void SleepActivity::renderBlankSleepScreen() const {
   renderer.clearScreen();
+  renderer.displayBuffer(EInkDisplay::HALF_REFRESH);
+}
+
+void SleepActivity::renderCalendarSleepScreen() const {
+  // Try to load calendar data from file
+  CalendarData calendarData;
+  if (!calendarData.loadFromFile()) {
+    Serial.printf("[%lu] [SLP] No calendar data found, showing default screen\n", millis());
+    return renderDefaultSleepScreen();
+  }
+
+  // Load event state (completed/hidden status)
+  CalendarEventState eventState;
+  eventState.loadFromFile();
+
+  const auto pageWidth = renderer.getScreenWidth();
+  const auto pageHeight = renderer.getScreenHeight();
+
+  renderer.clearScreen();
+
+  // Title and date at the top
+  int y = 10;
+  renderer.drawText(UI_12_FONT_ID, 10, y, "Today's Agenda", true, EpdFontFamily::BOLD);
+  y += renderer.getLineHeight(UI_12_FONT_ID) + 5;
+
+  // Date
+  if (!calendarData.today.date.empty()) {
+    renderer.drawText(UI_10_FONT_ID, 10, y, calendarData.today.date.c_str(), true, EpdFontFamily::REGULAR);
+    y += renderer.getLineHeight(UI_10_FONT_ID) + 2;
+  }
+
+  // Weather info
+  if (!calendarData.today.weather.empty() || calendarData.today.temperature != 0) {
+    char weatherStr[64];
+    if (calendarData.today.temperature != 0) {
+      snprintf(weatherStr, sizeof(weatherStr), "%s %d°C", calendarData.today.weather.c_str(), calendarData.today.temperature);
+    } else {
+      snprintf(weatherStr, sizeof(weatherStr), "%s", calendarData.today.weather.c_str());
+    }
+    renderer.drawText(SMALL_FONT_ID, 10, y, weatherStr, true, EpdFontFamily::REGULAR);
+    y += renderer.getLineHeight(SMALL_FONT_ID) + 8;
+  }
+
+  // Draw a separator line
+  renderer.drawLine(10, y, pageWidth - 10, y, true);
+  y += 8;
+
+  // Display today's events (limit to 5 visible events to fit on screen)
+  const size_t maxVisibleEvents = 5;
+  size_t visibleEventCount = 0;
+  bool hasEvents = false;
+
+  renderer.drawText(UI_10_FONT_ID, 10, y, "Events:", true, EpdFontFamily::BOLD);
+  y += renderer.getLineHeight(UI_10_FONT_ID) + 5;
+
+  for (size_t i = 0; i < calendarData.today.events.size() && visibleEventCount < maxVisibleEvents; i++) {
+    const auto& event = calendarData.today.events[i];
+    std::string eventKey = CalendarEventState::makeEventKey(calendarData.today.date, event.time, event.title);
+
+    // Skip hidden events
+    if (eventState.isHidden(eventKey)) {
+      continue;
+    }
+
+    hasEvents = true;
+    bool isCompleted = eventState.isCompleted(eventKey);
+
+    // Completion indicator
+    const char* checkbox = isCompleted ? "[X]" : "   ";
+    renderer.drawText(SMALL_FONT_ID, 15, y, checkbox, true, EpdFontFamily::REGULAR);
+
+    // Time
+    renderer.drawText(UI_10_FONT_ID, 45, y, event.time.c_str(), true, EpdFontFamily::REGULAR);
+
+    // Title (truncate if too long)
+    std::string title = event.title;
+    const int maxTitleWidth = pageWidth - 130;
+    const int titleWidth = renderer.getTextWidth(UI_10_FONT_ID, title.c_str(), EpdFontFamily::REGULAR);
+    if (titleWidth > maxTitleWidth) {
+      // Truncate title to fit
+      while (title.length() > 3 && renderer.getTextWidth(UI_10_FONT_ID, (title + "...").c_str(), EpdFontFamily::REGULAR) > maxTitleWidth) {
+        title.pop_back();
+      }
+      title += "...";
+    }
+
+    int titleX = 115;
+    renderer.drawText(UI_10_FONT_ID, titleX, y, title.c_str(), true, EpdFontFamily::REGULAR);
+
+    // Strikethrough if completed
+    if (isCompleted) {
+      int titleActualWidth = renderer.getTextWidth(UI_10_FONT_ID, title.c_str(), EpdFontFamily::REGULAR);
+      int strikeY = y + renderer.getLineHeight(UI_10_FONT_ID) / 2;
+      renderer.drawLine(titleX, strikeY, titleX + titleActualWidth, strikeY, true);
+    }
+
+    y += renderer.getLineHeight(UI_10_FONT_ID) + 3;
+    visibleEventCount++;
+  }
+
+  if (!hasEvents) {
+    renderer.drawText(UI_10_FONT_ID, 15, y, "No events scheduled", true, EpdFontFamily::REGULAR);
+    y += renderer.getLineHeight(UI_10_FONT_ID) + 10;
+  } else {
+    y += 5;
+  }
+
+  // Display tasks (limit to 3 tasks)
+  const size_t maxTasks = 3;
+  const size_t taskCount = std::min(calendarData.today.tasks.size(), maxTasks);
+
+  if (taskCount > 0) {
+    y += 5;
+    renderer.drawText(UI_10_FONT_ID, 10, y, "Tasks:", true, EpdFontFamily::BOLD);
+    y += renderer.getLineHeight(UI_10_FONT_ID) + 5;
+
+    for (size_t i = 0; i < taskCount; i++) {
+      const auto& task = calendarData.today.tasks[i];
+
+      // Bullet point
+      renderer.drawText(UI_10_FONT_ID, 15, y, "-", true, EpdFontFamily::REGULAR);
+
+      // Task text (truncate if too long)
+      std::string taskText = task;
+      const int maxTaskWidth = pageWidth - 50;
+      const int taskWidth = renderer.getTextWidth(UI_10_FONT_ID, taskText.c_str(), EpdFontFamily::REGULAR);
+      if (taskWidth > maxTaskWidth) {
+        while (taskText.length() > 3 && renderer.getTextWidth(UI_10_FONT_ID, (taskText + "...").c_str(), EpdFontFamily::REGULAR) > maxTaskWidth) {
+          taskText.pop_back();
+        }
+        taskText += "...";
+      }
+
+      renderer.drawText(UI_10_FONT_ID, 30, y, taskText.c_str(), true, EpdFontFamily::REGULAR);
+      y += renderer.getLineHeight(UI_10_FONT_ID) + 3;
+    }
+  }
+
+  // Tomorrow's preview at the bottom
+  if (!calendarData.tomorrow.events.empty()) {
+    y = pageHeight - 60;
+    renderer.drawLine(10, y, pageWidth - 10, y, true);
+    y += 8;
+
+    renderer.drawText(SMALL_FONT_ID, 10, y, "Tomorrow:", true, EpdFontFamily::BOLD);
+    y += renderer.getLineHeight(SMALL_FONT_ID) + 3;
+
+    // Show first event only
+    const auto& firstEvent = calendarData.tomorrow.events[0];
+    char tomorrowStr[128];
+    snprintf(tomorrowStr, sizeof(tomorrowStr), "%s - %s", firstEvent.time.c_str(), firstEvent.title.c_str());
+    renderer.drawText(SMALL_FONT_ID, 10, y, tomorrowStr, true, EpdFontFamily::REGULAR);
+  }
+
+  // Source and sync time at the very bottom
+  if (!calendarData.source.empty()) {
+    char sourceStr[64];
+    snprintf(sourceStr, sizeof(sourceStr), "via %s", calendarData.source.c_str());
+    renderer.drawText(SMALL_FONT_ID, 10, pageHeight - 15, sourceStr, true, EpdFontFamily::REGULAR);
+  }
+
   renderer.displayBuffer(EInkDisplay::HALF_REFRESH);
 }
